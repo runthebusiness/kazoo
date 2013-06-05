@@ -149,8 +149,8 @@ find_file(File, Root) ->
 %%--------------------------------------------------------------------
 -spec stop() -> 'ok'.
 stop() ->
-    cowboy:stop_listener('v1_resource'),
-    cowboy:stop_listener('v1_resource_ssl'),
+    _ = cowboy:stop_listener('v1_resource'),
+    _ = cowboy:stop_listener('v1_resource_ssl'),
     'ok' = application:stop('crossbar').
 
 %%--------------------------------------------------------------------
