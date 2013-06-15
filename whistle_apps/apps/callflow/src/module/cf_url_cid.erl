@@ -17,19 +17,14 @@
 handle(Data, Call) ->
     lager:debug("will -- cf_url_cid:handle Data: ~p, Call: ~p", [Data, Call]),
     % Get all the info about the callflow -- had to make some of these be get_value because the ne flavor wouldn't do it:
-    CFCID = wh_json:get_ne_value(<<"caller_id_number">>, Data),
-    CFCIDName = wh_json:get_ne_value(<<"caller_id_name">>, Data),
-    CFUseDefaultCallerId = wh_json:get_value(<<"use_default_caller_id">>, Data),
-    CFCampaign = wh_json:get_ne_value(<<"campaign">>, Data),
-    CFUseDefaultCampaign = wh_json:get_value(<<"use_default_campaign">>, Data),
+    % Get call flow data:
+    {CFCID, CFCIDName, CFUseDefaultCallerId, CFCampaign, CFUseDefaultCampaign} = get_call_flow_data(Data),
 
     % Get all the info about the call:
-    CallCaptureGroup = whapps_call:kvs_fetch(cf_capture_group, Call),
-    CallCID = whapps_call:caller_id_number(Call),
-    CallCIDName = whapps_call:caller_id_name(Call),
+    {CallCaptureGroup, CallCID, CallCIDName} = get_call_data(Call),
 
     % Generate dial call area code
-    AreaCode = string:substr(binary_to_list(CallCaptureGroup), 1, 4),
+    AreaCode = get_area_code(CallCaptureGroup),
 
     % Select a campaign, either the caller_id_number of the calling party or the default one for the callflow
     Campaign = case CFUseDefaultCampaign of
@@ -46,7 +41,7 @@ handle(Data, Call) ->
        _ ->
            CFCIDName
     end,
-    
+
     % Generate a fall back CID if one can't be found in the database
     FallBackCID = case CFCID of
         undefined ->
@@ -57,40 +52,9 @@ handle(Data, Call) ->
 
     lager:debug("will -- cf_url_cid:handle got values, CFCID: ~p, CFCIDName: ~p, CFUseDefaultCallerId: ~p, CFCampaign: ~p, CFUseDefaultCampaign: ~p, CallCaptureGroup: ~p, CallCID: ~p, CallCIDName: ~p, AreaCode: ~p, Campaign: ~p, OutdoundCIDName: ~p, FallBackCID: ~p", [CFCID, CFCIDName, CFUseDefaultCallerId, CFCampaign, CFUseDefaultCampaign, CallCaptureGroup, CallCID, CallCIDName, AreaCode, Campaign, OutdoundCIDName, FallBackCID]),
 
-    
-    % Generate key for view query
-    ViewKey = list_to_binary(string:concat(string:concat(AreaCode,"|"),Campaign)),
-    ViewOptions = [{key, ViewKey}],
-
-    % Get account for call:
-    AccountDb = whapps_call:account_db(Call),
 
     % Get outbound cid based on the configuration of the db objects
-    OutboundCID = case CFUseDefaultCallerId of
-        true ->
-            lager:info("will -- using fall back cid: ~p", [FallBackCID]),
-            FallBackCID;
-        _ ->
-            case couch_mgr:get_results(AccountDb, <<"numbers/status">>, ViewOptions) of
-                {ok, []} ->
-                     lager:info("will -- number doesnt exist with key: ~p", [ViewOptions]),
-                     CallCID;
-                {ok, [JObj]} ->
-                     lager:info("will -- got profile of ~p ViewOptions: ~p", [JObj, ViewKey]),
-                     NumbersList = wh_json:get_value(<<"value">>, JObj),
-                     lager:debug("will -- got numbers list: ~p, list length: ~p", [NumbersList, length(NumbersList)]),
-                     {A1,A2,A3} = now(),
-                     random:seed(A1, A2, A3),
-                     Index = random:uniform(length(NumbersList)),
-                     lager:debug("will -- getting number of index: ~p", [Index]),
-                     lists:nth(Index, NumbersList);
-                {ok, _} ->
-                     lager:info("will -- result is ambiguous with key", [ViewKey]),
-                     CallCID;
-                 _E ->
-                      lager:info("failed to find number with key ~P error: ~p", [ViewKey, _E])
-            end
-     end,
+    OutboundCID = select_outbound_cid(AreaCode, Campaign, Call, CFUseDefaultCallerId, FallBackCID, CallCID),
 
     lager:info("setting the caller id number to new num: ~s name: ~s", [OutboundCID, OutdoundCIDName]),
 
@@ -102,3 +66,59 @@ handle(Data, Call) ->
               ],
     cf_exe:set_call(whapps_call:exec(Updates, C1)),
     cf_exe:continue(Call).
+
+-spec get_call_flow_data(wh_json:object()) -> any().
+get_call_flow_data(Data) ->
+    {wh_json:get_ne_value(<<"caller_id_number">>, Data),
+    wh_json:get_ne_value(<<"caller_id_name">>, Data),
+    wh_json:get_value(<<"use_default_caller_id">>, Data),
+    wh_json:get_ne_value(<<"campaign">>, Data),
+    wh_json:get_value(<<"use_default_campaign">>, Data)}.
+
+-spec get_call_data(whapps_call:call()) -> any().
+get_call_data(Call) ->
+    {whapps_call:kvs_fetch(cf_capture_group, Call),
+    whapps_call:caller_id_number(Call),
+    whapps_call:caller_id_name(Call)}.
+
+-spec get_area_code(binary()) -> any().
+get_area_code(Number) ->
+    string:substr(binary_to_list(Number), 1, 4).
+
+
+-spec select_outbound_cid(string(), string(), whapps_call:call(), boolean(), string(), string()) -> any().
+    select_outbound_cid(AreaCode, Campaign, Call, CFUseDefaultCallerId, FallBackCID, CallCID) ->
+        % Generate key for view query
+        ViewKey = list_to_binary(string:concat(string:concat(AreaCode,"|"),Campaign)),
+        ViewOptions = [{key, ViewKey}],
+
+        % Get account for call:
+        AccountDb = whapps_call:account_db(Call),
+
+        % Get outbound cid based on the configuration of the db objects
+        OutboundCID = case CFUseDefaultCallerId of
+            true ->
+                lager:info("will -- using fall back cid: ~p", [FallBackCID]),
+                FallBackCID;
+            _ ->
+                case couch_mgr:get_results(AccountDb, <<"numbers/status">>, ViewOptions) of
+                    {ok, []} ->
+                         lager:info("will -- number doesnt exist with key: ~p", [ViewOptions]),
+                         CallCID;
+                    {ok, [JObj]} ->
+                         lager:info("will -- got profile of ~p ViewOptions: ~p", [JObj, ViewKey]),
+                         NumbersList = wh_json:get_value(<<"value">>, JObj),
+                         lager:debug("will -- got numbers list: ~p, list length: ~p", [NumbersList, length(NumbersList)]),
+                         {A1,A2,A3} = now(),
+                         random:seed(A1, A2, A3),
+                         Index = random:uniform(length(NumbersList)),
+                         lager:debug("will -- getting number of index: ~p", [Index]),
+                         lists:nth(Index, NumbersList);
+                    {ok, _} ->
+                        lager:info("will -- result is ambiguous with key", [ViewKey]),
+                        CallCID;
+                     _E ->
+                        lager:info("failed to find number with key ~P error: ~p", [ViewKey, _E])
+                end
+         end.
+
