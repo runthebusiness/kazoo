@@ -1,0 +1,9 @@
+{
+   "_id": "_design/numbers",
+   "language": "javascript",
+   "views": {
+       "status": {
+           "map": "function(doc) {\n\tif(doc.pvt_type == \"phone_numbers\"){\n\t\tfor(campaign in doc.campaigns){\n\t\t\tvar campaignType = doc.campaigns[campaign];\n\t\t\tvar campaignTypeTranslators = doc.campaign_types[campaignType];\n\t\t\tfor (areaCode in campaignTypeTranslators ) {\n\t\t\t\tvar translatedAreaCode = campaignTypeTranslators [areaCode];\n\t\t\t\tvar numbers = [];\n\t\t\t\tfor(phonenumber in doc){\n\t\t\t\t\tif(phonenumber.indexOf('+' + translatedAreaCode) == 0 && doc[phonenumber][\"campaign\"] == campaign ){\n\t\t\t\t\t\tnumbers.push(phonenumber);\n\t\t\t\t\t}\n\t\t\t\t}\n\t\t\t\temit(areaCode+\"|\"+campaign, numbers);\n\t\t\t}\n\n\t\t}\n\n\t}\n}"
+       }
+   }
+}
