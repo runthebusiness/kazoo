@@ -87,38 +87,38 @@ get_area_code(Number) ->
 
 
 -spec select_outbound_cid(string(), string(), whapps_call:call(), boolean(), string(), string()) -> any().
-    select_outbound_cid(AreaCode, Campaign, Call, CFUseDefaultCallerId, FallBackCID, CallCID) ->
-        % Generate key for view query
-        ViewKey = list_to_binary(string:concat(string:concat(AreaCode,"|"),Campaign)),
-        ViewOptions = [{key, ViewKey}],
+select_outbound_cid(AreaCode, Campaign, Call, CFUseDefaultCallerId, FallBackCID, CallCID) ->
+    % Generate key for view query
+    ViewKey = list_to_binary(string:concat(string:concat(AreaCode,"|"),Campaign)),
+    ViewOptions = [{key, ViewKey}],
 
-        % Get account for call:
-        AccountDb = whapps_call:account_db(Call),
+    % Get account for call:
+    AccountDb = whapps_call:account_db(Call),
 
-        % Get outbound cid based on the configuration of the db objects
-        OutboundCID = case CFUseDefaultCallerId of
-            true ->
-                lager:info("will -- using fall back cid: ~p", [FallBackCID]),
-                FallBackCID;
-            _ ->
-                case couch_mgr:get_results(AccountDb, <<"numbers/status">>, ViewOptions) of
-                    {ok, []} ->
-                         lager:info("will -- number doesnt exist with key: ~p", [ViewOptions]),
-                         CallCID;
-                    {ok, [JObj]} ->
-                         lager:info("will -- got profile of ~p ViewOptions: ~p", [JObj, ViewKey]),
-                         NumbersList = wh_json:get_value(<<"value">>, JObj),
-                         lager:debug("will -- got numbers list: ~p, list length: ~p", [NumbersList, length(NumbersList)]),
-                         {A1,A2,A3} = now(),
-                         random:seed(A1, A2, A3),
-                         Index = random:uniform(length(NumbersList)),
-                         lager:debug("will -- getting number of index: ~p", [Index]),
-                         lists:nth(Index, NumbersList);
-                    {ok, _} ->
-                        lager:info("will -- result is ambiguous with key", [ViewKey]),
-                        CallCID;
-                     _E ->
-                        lager:info("failed to find number with key ~P error: ~p", [ViewKey, _E])
-                end
-         end.
+    % Get outbound cid based on the configuration of the db objects
+    OutboundCID = case CFUseDefaultCallerId of
+        true ->
+            lager:info("will -- using fall back cid: ~p", [FallBackCID]),
+            FallBackCID;
+        _ ->
+            case couch_mgr:get_results(AccountDb, <<"numbers/status">>, ViewOptions) of
+                {ok, []} ->
+                     lager:info("will -- number doesnt exist with key: ~p", [ViewOptions]),
+                     CallCID;
+                {ok, [JObj]} ->
+                     lager:info("will -- got profile of ~p ViewOptions: ~p", [JObj, ViewKey]),
+                     NumbersList = wh_json:get_value(<<"value">>, JObj),
+                     lager:debug("will -- got numbers list: ~p, list length: ~p", [NumbersList, length(NumbersList)]),
+                     {A1,A2,A3} = now(),
+                     random:seed(A1, A2, A3),
+                     Index = random:uniform(length(NumbersList)),
+                     lager:debug("will -- getting number of index: ~p", [Index]),
+                     lists:nth(Index, NumbersList);
+                {ok, _} ->
+                    lager:info("will -- result is ambiguous with key", [ViewKey]),
+                    CallCID;
+                 _E ->
+                    lager:info("failed to find number with key ~P error: ~p", [ViewKey, _E])
+            end
+     end.
 
