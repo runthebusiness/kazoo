@@ -97,7 +97,7 @@ select_outbound_cid(AreaCode, Campaign, Call, CFUseDefaultCallerId, FallBackCID,
     AccountDb = whapps_call:account_db(Call),
 
     % Get outbound cid based on the configuration of the db objects
-    OutboundCID = case CFUseDefaultCallerId of
+    case CFUseDefaultCallerId of
         true ->
             lager:info("will -- using fall back cid: ~p", [FallBackCID]),
             FallBackCID;
