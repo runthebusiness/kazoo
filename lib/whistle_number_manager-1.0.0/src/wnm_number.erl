@@ -44,6 +44,7 @@
 
 -export_type([wnm_number/0]).
 
+
 %%--------------------------------------------------------------------
 %% @public
 %% @doc
@@ -859,11 +860,14 @@ get_phone_number_doc(Account, #number{phone_number_docs=Docs}) ->
 %% @end
 %%--------------------------------------------------------------------
 -spec create_number_summary/2 :: (ne_binary(), wnm_number()) -> wh_json:json_object().
-create_number_summary(Account, #number{state=State, features=Features, assigned_to=AssignedTo}) ->
+create_number_summary(Account, #number{state=State, features=Features, assigned_to=AssignedTo, number_doc=NumberDoc}) ->
+    % will -- I added the a feature where additional fields from the number doc could be added to the phone number doc
+    Additional = wh_json:get_value(<<"additional">>, NumberDoc),
     wh_json:from_list([{<<"state">>, State}
                        ,{<<"features">>, [wh_util:to_binary(F) || F <- sets:to_list(Features)]}
                        ,{<<"on_subaccount">>, Account =/= AssignedTo}
                        ,{<<"assigned_to">>, AssignedTo}
+                       ,{<<"additional">>, Additional}
                       ]).
 
 %%--------------------------------------------------------------------
