@@ -16,6 +16,7 @@
 
 -define(FAILOVER_KEY, <<"failover">>).
 
+
 %%--------------------------------------------------------------------
 %% @public
 %% @doc
@@ -41,9 +42,13 @@ delete(#number{features=Features
                ,current_number_doc=CurrentDoc
                ,number_doc=Doc
               }=Number) ->
+    lager:debug("will -- wnm_failover:delete called, Features: ~p, CurrentDoc: ~p, Doc: ~p Number: ~p", [Features, CurrentDoc, Doc, Number]),
     case wh_json:get_ne_value(?FAILOVER_KEY, CurrentDoc) of
-        undefined -> Number;
+        undefined -> 
+            lager:debug("will -- wnm_failover:delete case undefined"),
+            Number;
         _Else ->
+            lager:debug("will -- wnm_failover:delete case else"),
             Number#number{features=sets:del_element(?FAILOVER_KEY, Features)
                           ,number_doc=wh_json:delete_key(?FAILOVER_KEY, Doc)
                          }

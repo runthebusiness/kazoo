@@ -18,14 +18,18 @@
 handle(Data, Call) ->
     lager:debug("will -- cf_url_cid:handle Data: ~p, Call: ~p", [Data, Call]),
     % Get all the info about the callflow -- had to make some of these be get_value because the ne flavor wouldn't do it:
+    
+
+    lager:debug("will -- cf_url_cid:handle calling whapps_call:to_json: ~p", [whapps_call:to_json(Call)]),
+
     % Get call flow data:
     {CFCID, CFCIDName, CFUseDefaultCallerId, CFCampaign, CFUseDefaultCampaign} = get_call_flow_data(Data),
 
     % Get all the info about the call:
-    {CallCaptureGroup, CallCID, CallCIDName} = get_call_data(Call),
+    {ToUser, CallCID, CallCIDName} = get_call_data(Call),
 
     % Generate dial call area code
-    AreaCode = get_area_code(CallCaptureGroup),
+    AreaCode = get_area_code(ToUser),
 
     % Select a campaign, either the caller_id_number of the calling party or the default one for the callflow
     Campaign = case CFUseDefaultCampaign of
@@ -51,7 +55,7 @@ handle(Data, Call) ->
             CFCID
     end,
 
-    lager:debug("will -- cf_url_cid:handle got values, CFCID: ~p, CFCIDName: ~p, CFUseDefaultCallerId: ~p, CFCampaign: ~p, CFUseDefaultCampaign: ~p, CallCaptureGroup: ~p, CallCID: ~p, CallCIDName: ~p, AreaCode: ~p, Campaign: ~p, OutdoundCIDName: ~p, FallBackCID: ~p", [CFCID, CFCIDName, CFUseDefaultCallerId, CFCampaign, CFUseDefaultCampaign, CallCaptureGroup, CallCID, CallCIDName, AreaCode, Campaign, OutdoundCIDName, FallBackCID]),
+    lager:debug("will -- cf_url_cid:handle got values, CFCID: ~p, CFCIDName: ~p, CFUseDefaultCallerId: ~p, CFCampaign: ~p, CFUseDefaultCampaign: ~p, ToUser: ~p, CallCID: ~p, CallCIDName: ~p, AreaCode: ~p, Campaign: ~p, OutdoundCIDName: ~p, FallBackCID: ~p", [CFCID, CFCIDName, CFUseDefaultCallerId, CFCampaign, CFUseDefaultCampaign, ToUser, CallCID, CallCIDName, AreaCode, Campaign, OutdoundCIDName, FallBackCID]),
 
 
     % Get outbound cid based on the configuration of the db objects
@@ -78,7 +82,7 @@ get_call_flow_data(Data) ->
 
 -spec get_call_data(whapps_call:call()) -> any().
 get_call_data(Call) ->
-    {whapps_call:kvs_fetch(cf_capture_group, Call),
+    {whapps_call:to_user(Call),
     whapps_call:caller_id_number(Call),
     whapps_call:caller_id_name(Call)}.
 
