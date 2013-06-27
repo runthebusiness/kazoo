@@ -359,7 +359,7 @@ finish_record_call(Call, Props, MediaName) ->
                 Setters;
             {'true', 'local'} ->
                 {'ok', MediaJObj} = kzt_receiver:recording_meta(Call, MediaName),
-                StoreUrl = wapi_dialplan:store_url(Call, MediaJObj),
+                StoreUrl = wapi_dialplan:local_store_url(Call, MediaJObj),
 
                 lager:debug("storing ~s locally to ~s", [MediaName, StoreUrl]),
 
